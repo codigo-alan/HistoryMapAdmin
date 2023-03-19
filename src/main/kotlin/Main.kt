@@ -1,18 +1,17 @@
-import database.MarkerRepository
 import database.RealmRepo
-import io.realm.kotlin.Realm
-import io.realm.kotlin.ext.query
-import io.realm.kotlin.log.LogLevel
-import io.realm.kotlin.mongodb.App
-import io.realm.kotlin.mongodb.AppConfiguration
-import io.realm.kotlin.mongodb.Credentials
-import io.realm.kotlin.mongodb.subscriptions
-import io.realm.kotlin.mongodb.sync.SyncConfiguration
-import models.Category
-import models.MarkerEntity
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import ui.Ui
 import java.util.*
 
+
+/**
+ * Instantiate RealmRepo, Ui
+ */
+val scanner = Scanner(System.`in`)
+val ui = Ui(scanner)
+val realmRepo = RealmRepo()
 suspend fun main() {
 
     /*val realmApp = App.create(
@@ -52,30 +51,64 @@ suspend fun main() {
     val realm = Realm.open(config)
     realm.subscriptions.waitForSynchronization()*/
 
-    /**
-     * Instantiate RealmRepo, MarkerRepository and Ui
-     */
-    val scanner = Scanner(System.`in`)
-    val ui = Ui(scanner)
-    val realmRepo = RealmRepo()
-    lateinit var markerRepository : MarkerRepository
 
+
+    /**
+     * User keyboard selects
+     */
     val userSelect = ui.initialMenu()
     val userInputs = ui.userInputs()
-    val userAction = when (userSelect) {
-        1 -> loginUser(userInputs, realmRepo)
-        2 -> registerUser(userInputs, realmRepo)
+    val userActionResult = when (userSelect) {
+        1 -> loginUser(userInputs)
+        2 -> registerUser(userInputs)
         else -> ui.notValid()
     }
 
-    if (userAction) {
-        markerRepository = MarkerRepository()
+    if (userActionResult) {
+        val userDashboardSelect = ui.userDashboard()
+        when (userDashboardSelect) {
+            1 -> getAllMarkers()
+            2 -> getAllUsers()
+            3 -> deleteUser()
+            4 -> filterMarkerByCategory()
+            else -> ui.notValid()
+        }
     }
 
 
 }
 
-suspend fun registerUser(userInputs: List<String>, realmRepo: RealmRepo) : Boolean {
+fun filterMarkerByCategory() {
+    val categoryName = scanner.nextLine()
+    val listOfMarkers = realmRepo.markerRepository.markersByCategory(categoryName)
+    CoroutineScope(Dispatchers.Main).launch{
+        ui.showListOfMarkers(listOfMarkers)
+    }
+}
+
+fun deleteUser() {
+    val mapOfUsers = realmRepo.markerRepository.allUsers()
+    val userToDeleteId = scanner.nextLine() //type the id of user to delete
+    CoroutineScope(Dispatchers.Main).launch {
+        realmRepo.markerRepository.deleteUser(mapOfUsers, userToDeleteId)
+    }
+}
+
+fun getAllUsers() {
+    val mapOfUsers = realmRepo.markerRepository.allUsers()
+    ui.showUsers(mapOfUsers)
+}
+
+fun getAllMarkers() {
+    val listOfMarkers = realmRepo.markerRepository.markersListFlow() //TODO not live data
+    CoroutineScope(Dispatchers.Main).launch{
+        ui.showListOfMarkers(listOfMarkers)
+    }
+
+
+}
+
+suspend fun registerUser(userInputs: List<String>) : Boolean {
     return try {
 
         realmRepo.register(userInputs.first(), userInputs.last())
@@ -89,7 +122,7 @@ suspend fun registerUser(userInputs: List<String>, realmRepo: RealmRepo) : Boole
     }
 }
 
-suspend fun loginUser(userInputs: List<String>, realmRepo: RealmRepo) : Boolean {
+suspend fun loginUser(userInputs: List<String>) : Boolean {
     return try {
         println("${userInputs.first()} , ${userInputs.last()}")
 

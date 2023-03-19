@@ -14,6 +14,7 @@ class RealmRepo {
     var user : User? = null
     var realm : Realm? = null
     lateinit var configuration: SyncConfiguration
+    lateinit var markerRepository: MarkerRepository
 
     init {
         realmApp = createRealmApp()
@@ -47,7 +48,7 @@ class RealmRepo {
         realm = Realm.open(this.configuration)
         realm!!.subscriptions.waitForSynchronization()
 
-        //TODO create MarkerRepo
+        markerRepository = MarkerRepository(realm!!, realmApp)
     }
 
     private fun createCredentials(email: String, password: String) =
