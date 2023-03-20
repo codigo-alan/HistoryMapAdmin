@@ -42,7 +42,7 @@ suspend fun main() {
             )
             add(
                 realm.query<Category>(),
-                "All Category"
+                "All Categories"
             )
 
         }
