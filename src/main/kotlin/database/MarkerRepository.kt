@@ -1,30 +1,32 @@
 package database
 
-import io.realm.kotlin.Realm
-import io.realm.kotlin.ext.query
-import io.realm.kotlin.mongodb.App
-import io.realm.kotlin.mongodb.User
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
+
+import com.mongodb.client.MongoCollection
+import com.mongodb.client.model.Filters
 import models.Category
 import models.MarkerEntity
 
-class MarkerRepository(val realm: Realm, val realmApp: App) {
+class MarkerRepository(
+    val markerCollection: MongoCollection<MarkerEntity>,
+    val categoryCollection: MongoCollection<Category>
+) {
 
-    fun markersListFlow() : Flow<List<MarkerEntity>> = realm.query<MarkerEntity>().find().asFlow().map { it.list.toList() }
-    fun markersByCategory(categoryName: String) : Flow<List<MarkerEntity>> = realm.query<MarkerEntity>("category.name == '${categoryName}'").find().asFlow().map { it.list.toList() }
-    fun allUsers() = realmApp.allUsers()
+    fun categoriesList() = categoryCollection.find().toList()
 
-    //TODO delete user
-    suspend fun deleteUser(mapOfUsers : Map<String, User>, userToDeleteId : String){
-        mapOfUsers.forEach { (key, value) ->
-            if (key == userToDeleteId) {
-                value.delete()
-                println("Debug: ${value.state}") //state should be REMOVED
-            } //if key of map equal inputted id, delete its value which is a User
-        }
+    fun addCategory(category: Category) {
+        categoryCollection.insertOne(category)
     }
-    //TODO create Category
-    //TODO delete Category
+
+    fun deleteCategory(name: String){
+        categoryCollection.deleteOne(Filters.eq("name", name))
+    }
+
+    fun deleteMarker(name: String) {
+        markerCollection.deleteOne(Filters.eq("name", name))
+    }
+
+    fun markersList() = markerCollection.find().toList()
+
+    //fun markersByCategory(categoryName: String) = markerCollection.find(Filters.eq("category", categoryName)).toList()
 
 }

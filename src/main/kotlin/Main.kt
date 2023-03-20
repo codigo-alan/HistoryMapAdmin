@@ -1,138 +1,106 @@
-import database.RealmRepo
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
+import com.mongodb.ConnectionString
+import com.mongodb.MongoClientSettings
+import com.mongodb.ServerApi
+import com.mongodb.ServerApiVersion
+import com.mongodb.client.MongoClient
+import com.mongodb.client.MongoClients
+import com.mongodb.client.MongoCollection
+import com.mongodb.client.MongoDatabase
+import database.MarkerRepository
+import models.Category
+import models.MarkerEntity
+import org.bson.codecs.configuration.CodecRegistries
+import org.bson.codecs.pojo.PojoCodecProvider
 import ui.Ui
 import java.util.*
 
 
 /**
- * Instantiate RealmRepo, Ui
+ * Instantiate MarkerRepository, Ui
  */
 val scanner = Scanner(System.`in`)
 val ui = Ui(scanner)
-val realmRepo = RealmRepo()
-suspend fun main() {
+fun main() {
 
-    /*val realmApp = App.create(
-        AppConfiguration.Builder("application-0-qderj") //app id from app services in atlas.
-            .log(LogLevel.ALL)
-            .build())
-    val scanner = Scanner(System.`in`)
-    println("User:")
-    val userName = scanner.nextLine()
-    println("Password:")
-    val userPassword = scanner.nextLine()
-
-
-
-    val creds = Credentials.emailPassword(userName, userPassword)
-    realmApp.login(creds)
-    val user = realmApp.currentUser!!
-    println(user.loggedIn)
-
-    //remote config
-    val config = SyncConfiguration.Builder(user, setOf(MarkerEntity::class, Category::class))
-        .initialSubscriptions { realm ->
-            add(
-                realm.query<MarkerEntity>(),
-                "All Markers"
-            )
-            add(
-                realm.query<Category>(),
-                "All Categories"
-            )
-
-        }
-        .waitForInitialRemoteData()
+    //Client
+    val pojoCodecProvider = PojoCodecProvider.builder().automatic(true).build()
+    val pojoCodecRegistry = CodecRegistries.fromRegistries(
+        MongoClientSettings.getDefaultCodecRegistry(),
+        CodecRegistries.fromProviders(pojoCodecProvider)
+    )
+    val connectionString =
+        ConnectionString("mongodb+srv://alan:ITB2021316@atlascluster.c3venvw.mongodb.net/?retryWrites=true&w=majority")
+    val settings: MongoClientSettings = MongoClientSettings.builder()
+        .applyConnectionString(connectionString)
+        .serverApi(
+            ServerApi.builder()
+                .version(ServerApiVersion.V1)
+                .build()
+        )
         .build()
+    val mongoClient: MongoClient = MongoClients.create(settings)
 
+    //Collections
+    val database: MongoDatabase = mongoClient.getDatabase("todo")
+        .withCodecRegistry(pojoCodecRegistry);
+    val markersCollection: MongoCollection<MarkerEntity> = database.getCollection("MarkerEntity", MarkerEntity::class.java)
+    val categoryCollections: MongoCollection<Category> = database.getCollection("Category", Category::class.java)
 
-    val realm = Realm.open(config)
-    realm.subscriptions.waitForSynchronization()*/
-
-
-
+    val markerRepository = MarkerRepository(markersCollection, categoryCollections)
     /**
      * User keyboard selects
      */
-    val userSelect = ui.initialMenu()
-    val userInputs = ui.userInputs()
-    val userActionResult = when (userSelect) {
-        1 -> loginUser(userInputs)
-        2 -> registerUser(userInputs)
-        else -> ui.notValid()
-    }
+    var userDashboardSelect = ui.userDashboard()
 
-    if (userActionResult) {
-        val userDashboardSelect = ui.userDashboard()
+    while(true) {
         when (userDashboardSelect) {
-            1 -> getAllMarkers()
-            2 -> getAllUsers()
-            3 -> deleteUser()
-            4 -> filterMarkerByCategory()
+            1 -> getAllMarkers(markerRepository)
+            2 -> getAllCategories(markerRepository)
+            3 -> filterMarkerByCategory(markerRepository)
+            4 -> addCategory(markerRepository)
+            5 -> deleteMarker(markerRepository)
+            6 -> deleteCategory(markerRepository)
+            0 -> break
             else -> ui.notValid()
         }
+        userDashboardSelect = ui.userDashboard()
     }
 
 
 }
 
-fun filterMarkerByCategory() {
-    val categoryName = scanner.nextLine()
-    val listOfMarkers = realmRepo.markerRepository.markersByCategory(categoryName)
-    CoroutineScope(Dispatchers.Main).launch{
-        ui.showListOfMarkers(listOfMarkers)
-    }
+fun deleteCategory(markerRepository: MarkerRepository) {
+    println("Ingrese nombre de categoría que desa borrar: ")
+    val catName = scanner.nextLine()
+    markerRepository.deleteCategory(catName)
 }
 
-fun deleteUser() {
-    val mapOfUsers = realmRepo.markerRepository.allUsers()
-    val userToDeleteId = scanner.nextLine() //type the id of user to delete
-    CoroutineScope(Dispatchers.Main).launch {
-        realmRepo.markerRepository.deleteUser(mapOfUsers, userToDeleteId)
-    }
+fun addCategory(markerRepository: MarkerRepository) {
+    println("Ingrese nombre de categoría: ")
+    val catName = scanner.nextLine()
+    val category = Category(name = catName)
+    markerRepository.addCategory(category)
 }
 
-fun getAllUsers() {
-    val mapOfUsers = realmRepo.markerRepository.allUsers()
-    ui.showUsers(mapOfUsers)
+fun getAllCategories(markerRepository: MarkerRepository) {
+    val listOfCategories = markerRepository.categoriesList()
+    ui.showListOfCategories(listOfCategories)
 }
 
-fun getAllMarkers() {
-    val listOfMarkers = realmRepo.markerRepository.markersListFlow() //TODO not live data
-    CoroutineScope(Dispatchers.Main).launch{
-        ui.showListOfMarkers(listOfMarkers)
-    }
-
-
+fun deleteMarker(markerRepository: MarkerRepository) {
+    println("Ingrese nombre de Marker que desea borrar: ")
+    val markerName = scanner.nextLine()
+    markerRepository.deleteMarker(markerName)
 }
 
-suspend fun registerUser(userInputs: List<String>) : Boolean {
-    return try {
-
-        realmRepo.register(userInputs.first(), userInputs.last())
-        true //without errors
-
-    }catch(e: Exception){
-
-        println("No fue posible registrar el usuario. Error: $e")
-        false //with some error
-
-    }
+fun filterMarkerByCategory(markerRepository: MarkerRepository) {
+    /*val categoryName = scanner.nextLine()
+    val listOfMarkers = markerRepository.markersByCategory(categoryName)
+    ui.showListOfMarkers(listOfMarkers)*/
+    println("Not implemented yet")
 }
 
-suspend fun loginUser(userInputs: List<String>) : Boolean {
-    return try {
-        println("${userInputs.first()} , ${userInputs.last()}")
-
-        realmRepo.login(userInputs.first(), userInputs.last())
-        true //without errors
-
-    }catch(e: Exception){
-
-        println("No fue posible loguearse. Error: $e")
-        false //with some error
-
-    }
+fun getAllMarkers(markerRepository: MarkerRepository) {
+    val listOfMarkers = markerRepository.markersList()
+    ui.showListOfMarkers(listOfMarkers)
 }
