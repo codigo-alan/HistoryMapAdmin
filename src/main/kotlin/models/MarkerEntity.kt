@@ -15,5 +15,5 @@ open class MarkerEntity (
     var owner_id: String = ""
 ) : RealmObject {
     constructor() : this(owner_id = "") {}
-    override fun toString() = "Marker($_id, $name, $photo, $latitude, $longitude, $owner_id)"
+    override fun toString() = "Marker($_id, $name, $category, $photo, $latitude, $longitude, $owner_id)"
 }
